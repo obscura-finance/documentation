@@ -448,7 +448,7 @@ async def delete_user_data(user_id: UUID):
 2. **Enable IP whitelisting**: Restrict API keys to known IPs
 3. **Rotate keys periodically**: Every 6 months minimum
 4. **Monitor activity**: Review execution logs regularly
-5. **Report suspicious activity**: Contact security@obscura.network
+5. **Report suspicious activity**: Contact security@obscura.finance
 
 ## Incident Response Plan
 

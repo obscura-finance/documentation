@@ -87,6 +87,7 @@ Verifier: [verifies proof] "I'm convinced you solved it"
 - **Curve**: BN254 (optimal pairing-friendly curve)
 - **Proof System**: Honk (PLONK-based, aggregation-friendly)
 - **Prover**: Barretenberg (C++ high-performance prover)
+- **Hash Function**: Poseidon2 (via noir-lang/poseidon v0.1.1)
 
 ### Circuit Inputs
 
@@ -94,116 +95,106 @@ Verifier: [verifies proof] "I'm convinced you solved it"
 ```rust
 pub struct PublicInputs {
     trader_address: Field,        // On-chain identifier
-    total_pnl: Field,            // Total profit/loss
-    win_rate: Field,             // Percentage of winning trades
-    sharpe_ratio: Field,         // Risk-adjusted return
-    total_trades: Field,         // Number of trades
-    timestamp: Field,            // Report timestamp
-    nonce: Field                 // Prevents replay attacks
+    timestamp_start: u64,         // Report period start
+    timestamp_end: u64,           // Report period end
+    report_hash: Field            // Hash of computed results
 }
 ```
 
 #### Private Inputs (Hidden Witness)
 ```rust
 struct PrivateInputs {
-    trades: [Trade; MAX_TRADES], // Individual trade details
-    entry_prices: [Field; MAX_TRADES],
-    exit_prices: [Field; MAX_TRADES],
-    quantities: [Field; MAX_TRADES],
-    fees: [Field; MAX_TRADES],
-    timestamps: [Field; MAX_TRADES]
+    trades: [Trade; MAX_TRADES],  // Individual trade details (max 10)
+    actual_trade_count: u32       // Actual number of trades
 }
 
 struct Trade {
-    symbol: Field,      // Hash of trading pair
-    side: Field,        // 0=buy, 1=sell
-    entry_price: Field,
-    exit_price: Field,
-    quantity: Field,
-    fee: Field,
-    pnl: Field
+    side: u8,                     // 0=buy, 1=sell
+    quantity: u128,               // Trade quantity (scaled by 1e12)
+    price: u128,                  // Trade price (scaled by 1e12)
+    fee: u128,                    // Trading fee (scaled by 1e12)
+    trade_id: Field,              // Unique trade identifier
+    trader_user_id: Field,        // Trader identifier
+    symbol: Field,                // Hash of trading pair
+    order_type: u8,               // Order type
+    order_updated_at: u64,        // Trade timestamp
+    exchange: Field               // Exchange identifier
 }
 ```
 
 ### Circuit Logic
 
 ```rust
-// Noir pseudocode (simplified)
+// Actual Noir implementation (simplified)
 
 fn main(
-    // Public inputs
-    pub trader_address: Field,
-    pub total_pnl: Field,
-    pub win_rate: Field,
-    pub sharpe_ratio: Field,
-    pub total_trades: Field,
-    
     // Private inputs (witness)
     trades: [Trade; MAX_TRADES],
-    entry_prices: [Field; MAX_TRADES],
-    exit_prices: [Field; MAX_TRADES],
-    quantities: [Field; MAX_TRADES],
-    fees: [Field; MAX_TRADES]
-) {
-    // 1. Validate trade integrity
-    assert(total_trades <= MAX_TRADES);
-    assert(total_trades > 0);
+    actual_trade_count: u32,
     
-    // 2. Compute PnL for each trade
-    let mut computed_pnl: Field = 0;
-    let mut winning_trades: Field = 0;
+    // Public inputs
+    pub trader_address: Field,
+    pub timestamp_start: u64,
+    pub timestamp_end: u64,
+    pub report_hash: Field
+) -> pub TradeResult {
+    // 1. Validate inputs
+    assert(actual_trade_count <= MAX_TRADES);
+    assert(timestamp_start < timestamp_end);
     
-    for i in 0..total_trades {
-        let trade_pnl = calculate_pnl(
-            trades[i].side,
-            entry_prices[i],
-            exit_prices[i],
-            quantities[i],
-            fees[i]
-        );
-        
-        // Accumulate total PnL
-        computed_pnl += trade_pnl;
-        
-        // Count winning trades
-        if trade_pnl > 0 {
-            winning_trades += 1;
+    // 2. Initialize multi-symbol position tracking
+    let mut symbol_positions: SymbolPositions = SymbolPositions::default();
+    let mut processed_trades: u32 = 0;
+    
+    // 3. Process each trade with queue-based matching
+    for i in 0..MAX_TRADES {
+        if i < actual_trade_count {
+            let trade = trades[i];
+            
+            // Validate trade data
+            assert(trade.quantity != 0);
+            assert(trade.price != 0);
+            
+            // Calculate PnL using queue-based matching
+            calculate_multi_symbol_pnl(&mut symbol_positions, trade);
+            processed_trades += 1;
         }
     }
     
-    // 3. Verify public outputs match private computations
-    assert(computed_pnl == total_pnl);
+    // 4. Verify processed count
+    assert(processed_trades == actual_trade_count);
     
-    // 4. Verify win rate
-    let computed_win_rate = (winning_trades * 100) / total_trades;
-    assert(computed_win_rate == win_rate);
+    // 5. Get per-symbol PnL results
+    let (symbol_pnls, symbol_count) = get_symbol_pnl_results(symbol_positions);
     
-    // 5. Verify Sharpe ratio (risk-adjusted return)
-    let sharpe = calculate_sharpe_ratio(trades, total_trades);
-    assert(sharpe == sharpe_ratio);
+    // 6. Create cryptographic commitment
+    let trade_commitment = create_trade_commitment(
+        trades,
+        actual_trade_count,
+        trader_address,
+        timestamp_start,
+        timestamp_end
+    );
     
-    // 6. Verify trader commitment
-    let commitment = poseidon_hash([trader_address, total_trades, computed_pnl]);
-    assert(commitment == expected_commitment);
-}
-
-fn calculate_pnl(
-    side: Field,
-    entry_price: Field,
-    exit_price: Field,
-    quantity: Field,
-    fee: Field
-) -> Field {
-    let price_diff = if side == 0 { // buy
-        exit_price - entry_price
-    } else { // sell
-        entry_price - exit_price
-    };
+    // 7. Generate and verify report hash
+    let expected_report_hash = create_report_hash(
+        trader_address,
+        timestamp_start,
+        timestamp_end,
+        symbol_pnls,
+        symbol_count,
+        actual_trade_count
+    );
     
-    let gross_pnl = price_diff * quantity;
-    let net_pnl = gross_pnl - fee;
+    assert(report_hash == expected_report_hash);
     
-    net_pnl
+    // 8. Return results
+    TradeResult {
+        symbol_pnls,
+        symbol_count,
+        trade_count: actual_trade_count,
+        commitment: trade_commitment
+    }
 }
 ```
 
@@ -211,29 +202,31 @@ fn calculate_pnl(
 
 The circuit enforces:
 
-1. **PnL Calculation Correctness**:
+1. **Queue-Based PnL Calculation**:
+   - Buy trades are added to per-symbol queues
+   - Sell trades are matched against oldest buys (FIFO)
+   - PnL = (sell_price - buy_price) × quantity - fees
+
+2. **Multi-Symbol Position Tracking**:
+   - Each symbol maintains independent position queue
+   - Maximum 10 lots per symbol queue
+   - Realized PnL tracked per symbol
+
+3. **Trade Validation**:
    ```
-   ∀i: pnl[i] = (exit_price[i] - entry_price[i]) × quantity[i] - fee[i]
+   ∀i: quantity[i] > 0 ∧ price[i] > 0
+   actual_trade_count ≤ MAX_TRADES (10)
+   timestamp_start < timestamp_end
    ```
 
-2. **Total PnL Consistency**:
+4. **Report Hash Verification**:
    ```
-   Σ pnl[i] = total_pnl
-   ```
-
-3. **Win Rate Accuracy**:
-   ```
-   win_rate = (count(pnl[i] > 0) × 100) / total_trades
-   ```
-
-4. **Non-Negativity**:
-   ```
-   ∀i: quantity[i] > 0 ∧ entry_price[i] > 0 ∧ exit_price[i] > 0
+   report_hash = H(trader_address, timestamps, symbol_pnls, trade_count)
    ```
 
 5. **Cryptographic Commitment**:
    ```
-   commitment = H(trader_address, total_trades, total_pnl, nonce)
+   commitment = H(trades, actual_trade_count, trader_address, timestamps)
    ```
 
 ## Proof Generation Flow
@@ -304,54 +297,69 @@ bb prove -b ./target/circuit.json -w ./target/witness.gz -o ./proofs/proof
 
 ```solidity
 contract Obscura {
-    HonkVerifier public verifier;
+    IVerifier public verifier;
+    address public alchemist;
     
-    struct PerformanceReport {
+    struct SymbolPnL {
+        bytes32 symbol;
+        uint256 pnlValue;
+        bool pnlSign;        // true = positive, false = negative
+        bool isProfitable;
+    }
+    
+    struct TradingReport {
         address trader;
-        uint256 totalPnL;
-        uint256 winRate;
-        uint256 sharpeRatio;
-        uint256 totalTrades;
-        uint256 timestamp;
+        uint64 timestampStart;
+        uint64 timestampEnd;
+        SymbolPnL[10] symbolPnls;
+        uint256 symbolCount;
+        uint256 tradeCount;
+        bytes32 reportHash;
         bytes32 commitment;
     }
     
-    mapping(address => PerformanceReport[]) public reports;
+    struct ProofData {
+        bytes proof;
+        bytes32[] publicInputs;
+    }
+    
+    mapping(uint256 => TradingReport) private _reports;
+    mapping(address => uint256[]) private _traderReports;
     
     function submitReport(
-        bytes calldata proof,
-        uint256[] calldata publicInputs
-    ) external {
-        // 1. Verify ZK proof
-        bool isValid = verifier.verify(proof, publicInputs);
-        require(isValid, "Invalid proof");
+        TradingReport calldata report,
+        ProofData calldata proofData
+    ) external returns (uint256 reportId) {
+        // 1. Validate report data
+        _validateReportData(report);
         
-        // 2. Extract public inputs
-        address trader = address(uint160(publicInputs[0]));
-        uint256 totalPnL = publicInputs[1];
-        uint256 winRate = publicInputs[2];
-        uint256 sharpeRatio = publicInputs[3];
-        uint256 totalTrades = publicInputs[4];
-        uint256 timestamp = publicInputs[5];
-        bytes32 commitment = bytes32(publicInputs[6]);
+        // 2. Check for duplicate commitment
+        require(!_usedCommitments[report.commitment], "Duplicate commitment");
         
-        // 3. Validate constraints
-        require(trader == msg.sender, "Trader mismatch");
-        require(timestamp <= block.timestamp, "Future timestamp");
-        require(totalTrades > 0, "No trades");
+        // 3. Verify ZK proof
+        bool proofValid = verifier.verify(proofData.proof, proofData.publicInputs);
+        require(proofValid, "Invalid proof");
         
-        // 4. Store report
-        reports[trader].push(PerformanceReport({
-            trader: trader,
-            totalPnL: totalPnL,
-            winRate: winRate,
-            sharpeRatio: sharpeRatio,
-            totalTrades: totalTrades,
-            timestamp: timestamp,
-            commitment: commitment
-        }));
+        // 4. Verify public inputs match report
+        _verifyPublicInputs(report, proofData.publicInputs);
         
-        emit ReportSubmitted(trader, totalPnL, winRate, timestamp);
+        // 5. Store report
+        reportId = ++_reportCounter;
+        _reports[reportId] = report;
+        _traderReports[report.trader].push(reportId);
+        _usedCommitments[report.commitment] = true;
+        
+        // 6. Update trader symbols and stats
+        _updateTraderSymbols(report.trader, report.symbolPnls, report.symbolCount);
+        
+        emit ReportSubmitted(
+            report.trader,
+            reportId,
+            report.timestampStart,
+            report.timestampEnd,
+            report.symbolCount,
+            report.tradeCount
+        );
     }
 }
 ```
@@ -371,17 +379,18 @@ contract Obscura {
 - ✅ Well-studied and battle-tested
 - ✅ Supported by major ZK frameworks (Noir, Circom, Halo2)
 
-### Poseidon Hash Function
+### Poseidon2 Hash Function
 
-**Purpose**: Cryptographic commitment and Merkle tree construction  
+**Purpose**: Cryptographic commitment and report hash generation  
+**Implementation**: noir-lang/poseidon v0.1.1 (Poseidon2Hasher)  
 **Design**: Sponge construction optimized for ZK circuits  
-**Rounds**: 8 full rounds + 56 partial rounds  
 **Security**: 128-bit collision resistance
 
-**Why Poseidon?**
+**Why Poseidon2?**
 - ✅ 10x fewer constraints than SHA256 in ZK circuits
 - ✅ Native field arithmetic (no bitwise operations)
 - ✅ Designed specifically for ZK-SNARKs
+- ✅ Used for HashMap key hashing in circuit
 
 ```
 Poseidon Hash Comparison:
@@ -412,34 +421,33 @@ Poseidon Hash Comparison:
 
 | Trades | Constraints | Proof Time | Memory |
 |--------|-------------|------------|--------|
-| 5      | ~10,000     | 1.2s       | 512MB  |
-| 10     | ~20,000     | 2.5s       | 1GB    |
-| 25     | ~50,000     | 6.0s       | 2GB    |
-| 50     | ~100,000    | 12.0s      | 4GB    |
-| 100    | ~200,000    | 25.0s      | 8GB    |
+| 2      | ~12,000     | ~150ms     | 256MB  |
+| 3      | ~15,000     | ~200ms     | 512MB  |
+| 5      | ~20,000     | ~300ms     | 512MB  |
+| 10     | ~30,000     | ~500ms     | 1GB    |
 
 ### Proof Verification
 
 | Location | Time | Cost |
 |----------|------|------|
 | Off-chain (CPU) | ~5ms | Free |
-| Horizen L3 | ~50ms | ~$0.001 gas |
+| Horizen Testnet | ~50ms | ~$0.001 gas |
 | Ethereum | ~200ms | ~$15 gas (280k @ 50 gwei) |
 
 ### Scalability
 
-**Current**: 10 trades per proof  
-**Target**: 100 trades per proof (future optimization)  
-**Throughput**: 100 proofs/hour (single prover instance)  
-**Batch Verification**: 10 proofs in ~500ms (amortized 50ms per proof)
+**Current**: 10 trades per proof (MAX_TRADES = 10)  
+**Precision**: 1e12 scaling factor (SCALE_FACTOR)  
+**Queue Size**: 10 lots per symbol (MAX_QUEUE_SIZE)  
+**Throughput**: 100+ proofs/hour (single prover instance)
 
 ## Deployed System (Horizen Testnet)
 
 ### Network Details
 
-- **Name**: Horizen (Privacy-Focused L3)
+- **Name**: Horizen Testnet
 - **Chain ID**: 845320009
-- **RPC**: https://horizen-testnet.rpc.url
+- **RPC**: https://horizen-rpc-testnet.appchain.base.org
 - **Explorer**: https://horizen-explorer-testnet.appchain.base.org
 
 ### Contract Addresses
@@ -448,47 +456,54 @@ Poseidon Hash Comparison:
 - Verifies Honk proofs on-chain
 - Automatically generated by Noir compiler
 - Gas-optimized assembly implementation
+- [View on Explorer](https://horizen-explorer-testnet.appchain.base.org/address/0xBCfD5cf1255C839441D400D5a31De7e625f00095)
 
 **Obscura**: `0xC9483BFE9806788169ac0791bb149F0cD7d43125`
 - Main reputation contract
 - Stores trader performance reports
 - Emits events for indexing
+- [View on Explorer](https://horizen-explorer-testnet.appchain.base.org/address/0xC9483BFE9806788169ac0791bb149F0cD7d43125)
 
-### Deployment Date
-October 21, 2025
+**Deployer/Alchemist**: `0x3B465D0695621f330a45BCc15fcF6B2d8f2046d6`
+
+### Deployment Details
+- **Date**: October 21, 2025 (03:19:31 UTC)
+- **Block Number**: 20932983
 
 ## Privacy Guarantees
 
 ### What is Hidden (Zero-Knowledge)
 
 ✅ Individual trade details:
-- Entry and exit prices
-- Trade sizes (quantities)
-- Exact timestamps
-- Trading pairs
-- Fees paid
+- Trade prices
+- Trade quantities
+- Trading fees
+- Trade IDs and timestamps
+- Order types
+- Exchange identifiers
 
 ✅ Trading strategies:
 - Order of trades
 - Position sizing logic
 - Entry/exit criteria
+- Symbol selection
 - Risk management rules
 
 ### What is Revealed (Public Outputs)
 
-📊 Aggregate metrics only:
-- Total PnL (profit/loss)
-- Win rate (% of profitable trades)
-- Sharpe ratio (risk-adjusted return)
+📊 Minimal public information:
+- Trader address
+- Report time period (start/end timestamps)
+- Report hash (cryptographic commitment to results)
+- Per-symbol PnL (via TradeResult)
 - Total number of trades
-- Time period
 
 ### Attack Resistance
 
-**Replay Attack**: Prevented by nonce and timestamp in commitment  
+**Replay Attack**: Prevented by unique report hash and timestamp validation  
 **Front-Running**: Public outputs don't help predict future trades  
-**Sybil Attack**: One report per trader address per period  
-**Collusion**: Multiple traders can't combine proofs
+**Data Tampering**: Cryptographic commitment ensures data integrity  
+**Invalid Proofs**: HonkVerifier rejects any invalid ZK proofs
 
 ## Integration Example
 
@@ -498,7 +513,7 @@ October 21, 2025
 import { AlchemistClient } from '@obscura/alchemist-sdk';
 
 const alchemist = new AlchemistClient({
-  apiUrl: 'https://alchemist.obscura.network',
+  apiUrl: 'https://alchemist.obscura.finance',
   apiKey: process.env.ALCHEMIST_API_KEY
 });
 

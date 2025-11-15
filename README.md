@@ -214,7 +214,7 @@ npm run test:security
 docker exec postgres psql -c "SELECT * FROM audit_log WHERE action = 'decrypt_credentials';"
 ```
 
-**Bug Bounty**: security@obscura.network
+**Bug Bounty**: security@obscura.finance
 
 ---
 
@@ -289,7 +289,7 @@ docker exec postgres psql -c "SELECT * FROM audit_log WHERE action = 'decrypt_cr
 ## 🔗 External Resources
 
 ### Official Links
-- **Website**: https://obscura.network (Coming Soon)
+- **Website**: https://obscura.finance (Coming Soon)
 - **Twitter/X**: [@UseObscura](https://x.com/UseObscura)
 - **GitHub**: https://github.com/obscura (Coming Soon)
 - **Discord**: https://discord.gg/obscura (Coming Soon)
@@ -311,16 +311,16 @@ docker exec postgres psql -c "SELECT * FROM audit_log WHERE action = 'decrypt_cr
 ## 📧 Contact
 
 ### For Technical Questions
-- **Email**: dev@obscura.network
+- **Email**: dev@obscura.finance
 - **Discord**: #dev-support channel
 
 ### For Security Issues
-- **Email**: security@obscura.network
+- **Email**: security@obscura.finance
 - **PGP Key**: Available on request
 - **Bug Bounty**: Up to $50,000 for critical vulnerabilities
 
 ### For Partnerships
-- **Email**: partnerships@obscura.network
+- **Email**: partnerships@obscura.finance
 - **Twitter DM**: [@UseObscura](https://x.com/UseObscura)
 
 ---
