@@ -110,6 +110,40 @@ Academic whitepaper summary with detailed path to full decentralization.
 
 ---
 
+### [07. B2B Integration Guide](./07_B2B_INTEGRATION_GUIDE.md)
+Complete guide for **B2B platforms** (trading bots, signal providers, copy trading aggregators) to integrate with Obscura.
+
+**Topics Covered**:
+- Tenant onboarding and API key setup
+- Creating and managing trading pools
+- Signal submission (REST API, Batch, High-Volume Stream)
+- Subscription modes (Fixed Amount, Advanced, Martingale)
+- SDK examples (Python, JavaScript)
+- Error handling and idempotency
+
+**Recommended for**: B2B integration engineers, Trading bot developers, Platform architects
+
+**Key Technologies**: REST API, Redis Streams, BullMQ-style queues, WebSocket
+
+---
+
+### [08. Supported Exchanges](./08_SUPPORTED_EXCHANGES.md)
+Complete catalog of **100+ supported exchanges** via CCXT.
+
+**Topics Covered**:
+- Certified CEX exchanges (Binance, Bybit, OKX, etc.)
+- Certified DEX exchanges (Hyperliquid, dYdX, Paradex)
+- Exchange capabilities and features
+- API setup instructions
+- Testnet support
+- Fee comparison
+
+**Recommended for**: Traders, Integration engineers, DevOps
+
+**Key Technologies**: CCXT, Exchange APIs, WebSocket
+
+---
+
 ## 🔐 Privacy Technologies Explained
 
 ### Trusted Execution Environments (TEE)
@@ -263,12 +297,22 @@ docker exec postgres psql -c "SELECT * FROM audit_log WHERE action = 'decrypt_cr
 
 ## 🗺️ Roadmap
 
-### Phase 1: Citadel MVP (Q4 2025) ✅ **CURRENT**
+### Phase 1: Citadel MVP (Q4 2025) ✅ **COMPLETE**
 - ✅ Centralized Sentinel for trade ingestion
 - ✅ Citadel TEE for credential protection
 - ✅ Alchemist ZK proof generation
 - ✅ On-chain verification (Horizen L3)
 - ✅ Basic copy trading functionality
+
+### Phase 1.5: V2 Trading Platform (Q4 2025) ✅ **COMPLETE**
+- ✅ **Trading Pools**: Curated, Custom, Partner pool types
+- ✅ **B2B Multi-Tenancy**: Tenant isolation, API keys, scopes
+- ✅ **Subscription Modes**: Fixed Amount (beginner) & Advanced (pro)
+- ✅ **Martingale System**: Optional loss-recovery strategy
+- ✅ **100+ Exchange Support**: CEX & DEX via CCXT
+- ✅ **B2B Signal Submission**: REST API, Batch, High-Volume Streams
+- ✅ **Priority Queuing**: BullMQ-style with dead-letter queues
+- ✅ **Risk Management**: Daily limits, per-pair config, SL/TP
 
 ### Phase 2: Sentinel DON (Q2 2026)
 - 🔄 Decentralized Oracle Network (DON)
@@ -344,4 +388,4 @@ Obscura is proudly backed by:
 
 **Built with ❤️ by the Obscura team. Powered by privacy.**
 
-*Last Updated: January 2025*
+*Last Updated: December 2025*
