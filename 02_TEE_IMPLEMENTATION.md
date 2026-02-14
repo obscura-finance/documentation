@@ -15,6 +15,7 @@ A TEE is a **hardware-isolated secure area** within a processor that guarantees:
 ### AWS Nitro Enclaves
 
 AWS Nitro Enclaves provide:
+
 - **Hardware-enforced isolation** from the parent EC2 instance
 - **No persistent storage** - data only exists in enclave memory
 - **No network access** - communication only via secure VSOCK channel
@@ -53,6 +54,7 @@ AWS Nitro Enclaves provide:
 ```
 
 **Key Benefits**:
+
 - **80% less code**: Simplified from 3,000 to 600 lines
 - **10x simpler deployment**: 5 minutes vs 2-3 hours
 - **Same security**: Still uses AWS Nitro Enclaves
@@ -97,6 +99,7 @@ AWS Nitro Enclaves provide:
 ### Encryption Scheme
 
 **Algorithm**: AES-256-GCM (Authenticated Encryption)
+
 - **Key Size**: 256 bits
 - **Mode**: Galois/Counter Mode (provides both confidentiality and authenticity)
 - **Authentication Tag**: 128 bits (prevents tampering)
@@ -105,6 +108,7 @@ AWS Nitro Enclaves provide:
 ### Data Flow
 
 #### Encryption Flow
+
 ```
 User API Key (Plaintext)
     │
@@ -128,6 +132,7 @@ User API Key (Plaintext)
 ```
 
 #### Decryption Flow
+
 ```
 [Conductor] needs to execute trade
     │
@@ -159,12 +164,14 @@ Dispose of plaintext key after execution
 ### Key Management
 
 **Evervault Managed** (Current):
+
 - Keys stored in Evervault's infrastructure
 - Automatic key rotation
 - Hardware Security Module (HSM) backed
 - FIPS 140-2 Level 3 compliant
 
 **AWS KMS** (v1.0 - Deprecated):
+
 - Customer Master Keys (CMKs) in AWS KMS
 - Data Encryption Keys (DEKs) generated per enclave
 - Envelope encryption scheme
@@ -175,6 +182,7 @@ Dispose of plaintext key after execution
 ### What is Attestation?
 
 Attestation is **cryptographic proof** that:
+
 1. The code running in the enclave is exactly what you expect
 2. The enclave is running on genuine AWS Nitro hardware
 3. The enclave has not been tampered with
@@ -202,14 +210,15 @@ Attestation is **cryptographic proof** that:
 
 ### PCR (Platform Configuration Register) Values
 
-| PCR | Description | Purpose |
-|-----|-------------|---------|
+| PCR  | Description   | Purpose                       |
+| ---- | ------------- | ----------------------------- |
 | PCR0 | Enclave Image | Verifies exact enclave binary |
-| PCR1 | Kernel & Init | Verifies boot integrity |
-| PCR2 | Application | Verifies application code |
-| PCR8 | Certificate | Verifies signing authority |
+| PCR1 | Kernel & Init | Verifies boot integrity       |
+| PCR2 | Application   | Verifies application code     |
+| PCR8 | Certificate   | Verifies signing authority    |
 
 **Verification Process**:
+
 1. Enclave generates attestation document
 2. AWS Nitro Root signs the document
 3. Client verifies signature chain up to AWS Root CA
@@ -231,6 +240,7 @@ X-Internal-API-Key: <secret>
 ```
 
 **Response**:
+
 ```json
 {
   "encrypted_data": "ev:RFVC:TTLHY04oVJlBuvPx:A7MeNriTKFES0Djl9uKaPvHCAn9PjSfOHu7tswXFCHF9:$"
@@ -250,6 +260,7 @@ X-Internal-API-Key: <secret>
 ```
 
 **Response**:
+
 ```json
 {
   "plaintext": "my_binance_api_key"
@@ -263,6 +274,7 @@ GET /health
 ```
 
 **Response**:
+
 ```json
 {
   "status": "healthy",
@@ -277,28 +289,31 @@ GET /health
 ### Authentication & Authorization
 
 **Internal API Key**:
+
 - All encrypt/decrypt endpoints require `X-Internal-API-Key` header
 - Key generated with `openssl rand -hex 32`
 - Stored in environment variables (not in code)
 - Different key per environment (dev/staging/prod)
 
 **Service-to-Service**:
+
 - Only Sentinel and Conductor have access to Citadel
 - Network-level isolation via VPC
 - No public internet exposure
 
 ### Access Control
 
-| Service | Encrypt | Decrypt | Reason |
-|---------|---------|---------|--------|
-| **Sentinel** | ✅ | ❌ | Needs to encrypt new credentials |
-| **Conductor** | ❌ | ✅ | Needs to decrypt for trade execution |
-| **API Gateway** | ❌ | ❌ | Should never handle credentials directly |
-| **Alchemist** | ❌ | ❌ | Only processes trade data, not credentials |
+| Service               | Encrypt | Decrypt | Reason                                     |
+| --------------------- | ------- | ------- | ------------------------------------------ |
+| **Sentinel**    | ✅      | ❌      | Needs to encrypt new credentials           |
+| **Conductor**   | ❌      | ✅      | Needs to decrypt for trade execution       |
+| **API Gateway** | ❌      | ❌      | Should never handle credentials directly   |
+| **Alchemist**   | ❌      | ❌      | Only processes trade data, not credentials |
 
 ### Audit Logging
 
 All operations logged:
+
 ```json
 {
   "timestamp": "2025-01-15T16:30:00Z",
@@ -311,6 +326,7 @@ All operations logged:
 ```
 
 **Sensitive data never logged**:
+
 - ❌ Plaintext API keys
 - ❌ Plaintext secrets
 - ❌ Decrypted data
@@ -329,21 +345,21 @@ All operations logged:
 
 ### v2.0 (Evervault)
 
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Encrypt Latency | ~50ms | Including network RTT |
-| Decrypt Latency | ~50ms | Including network RTT |
-| Throughput | 100+ req/s | Single instance |
-| Availability | 99.9% | Evervault SLA |
+| Metric          | Value      | Notes                 |
+| --------------- | ---------- | --------------------- |
+| Encrypt Latency | ~50ms      | Including network RTT |
+| Decrypt Latency | ~50ms      | Including network RTT |
+| Throughput      | 100+ req/s | Single instance       |
+| Availability    | 99.9%      | Evervault SLA         |
 
 ### v1.0 (Custom Enclave)
 
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Encrypt Latency | ~5ms | VSOCK local communication |
-| Decrypt Latency | ~5ms | VSOCK local communication |
-| Throughput | 1,000 req/s | 8 enclaves @ 125 req/s each |
-| Availability | 99.5% | Self-managed |
+| Metric          | Value       | Notes                       |
+| --------------- | ----------- | --------------------------- |
+| Encrypt Latency | ~5ms        | VSOCK local communication   |
+| Decrypt Latency | ~5ms        | VSOCK local communication   |
+| Throughput      | 1,000 req/s | 8 enclaves @ 125 req/s each |
+| Availability    | 99.5%       | Self-managed                |
 
 **Trade-off**: v2.0 is 10x simpler to deploy and manage, with minimal latency increase (~45ms) acceptable for non-HFT use cases.
 
@@ -366,6 +382,7 @@ All operations logged:
 ### AWS Compliance
 
 AWS Nitro Enclaves inherit EC2 compliance:
+
 - ISO 27001
 - ISO 27017
 - ISO 27018
@@ -416,19 +433,20 @@ export VSOCK_PORT=5000
 
 ### Threats Mitigated
 
-✅ **Database Breach**: Encrypted credentials useless without decryption key  
-✅ **Memory Dump**: Enclave memory is encrypted  
-✅ **Insider Threat**: No admin access to plaintext keys  
-✅ **Service Compromise**: Sentinel can't decrypt, Conductor can't re-encrypt  
-✅ **Side-Channel Attacks**: Hardware-enforced isolation  
+✅ **Database Breach**: Encrypted credentials useless without decryption key
+✅ **Memory Dump**: Enclave memory is encrypted
+✅ **Insider Threat**: No admin access to plaintext keys
+✅ **Service Compromise**: Sentinel can't decrypt, Conductor can't re-encrypt
+✅ **Side-Channel Attacks**: Hardware-enforced isolation
 
 ### Threats Not Mitigated
 
-⚠️ **Compromised Enclave Code**: Malicious code inside enclave can access plaintext  
-⚠️ **AWS Infrastructure Compromise**: Trust in AWS Nitro hardware required  
-⚠️ **Time-of-Use Attack**: Plaintext exists in Conductor memory during execution  
+⚠️ **Compromised Enclave Code**: Malicious code inside enclave can access plaintext
+⚠️ **AWS Infrastructure Compromise**: Trust in AWS Nitro hardware required
+⚠️ **Time-of-Use Attack**: Plaintext exists in Conductor memory during execution
 
 **Mitigations**:
+
 - **Attestation**: Verify exact code running in enclave via PCRs
 - **Code Review**: Open-source enclave code for transparency
 - **Minimal Plaintext Lifetime**: Dispose keys immediately after use
