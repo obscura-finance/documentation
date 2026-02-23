@@ -22,8 +22,8 @@ Obscura is a **distributed microservices architecture** designed for privacy-pre
 
 ### 3. Citadel (Port 8004)
 - TEE-secured credential encryption/decryption
-- Evervault/AWS Nitro Enclaves
-- AES-256-GCM encryption
+- Nillion nilCC / AMD SEV-SNP hardware attestation
+- AES-256-GCM encryption with versioned keys (`nil:v{n}:{payload}`)
 - Internal API key authentication
 
 ### 4. Conductor (Port 8001)
@@ -123,7 +123,7 @@ Obscura is a **distributed microservices architecture** designed for privacy-pre
 ### Encryption
 - **At Rest**: AES-256 database encryption
 - **In Transit**: TLS 1.3
-- **In Use**: AWS Nitro Enclaves (TEE)
+- **In Use**: Nillion nilCC / AMD SEV-SNP (TEE)
 
 ## Performance Metrics
 
@@ -228,7 +228,7 @@ See [08_SUPPORTED_EXCHANGES.md](./08_SUPPORTED_EXCHANGES.md) for the full list.
 
 ---
 
-*Last Updated: December 2025*
+*Last Updated: February 2026*
 
 - [Citadel](/citadel/README.md)
 - [Alchemist](/alchemist/README.md)

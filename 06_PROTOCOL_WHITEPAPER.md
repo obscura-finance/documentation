@@ -4,19 +4,25 @@
 
 This document summarizes the Obscura whitepaper and details the **phased transition from centralized MVP to fully decentralized protocol**. Obscura synthesizes BFT consensus, TEE security, and ZK proofs to create a verifiable reputation layer for DeFi.
 
+> ⚠️ **Important: Current State vs Target Architecture**
+> This document describes both the **current production architecture** and the **target decentralized architecture**. Each section is clearly labeled. Readers should pay close attention to phase markers (✅ CURRENT, 🔄 IN DEVELOPMENT, ⏳ PLANNED) to understand what exists today versus what is on the roadmap.
+
 ---
 
 ## Core Protocol Components
 
 ### 1. Sentinel DON (Decentralized Oracle Network)
 **Purpose**: Replace centralized trade data ingestion with BFT consensus
+**Status**: ⏳ **TARGET ARCHITECTURE** — Not yet implemented
 
-**Mechanism**: Chainlink OCR-style consensus
+> **Current Reality (Phase 1):** Sentinel is a **single FastAPI service** that polls exchange APIs and opens WebSocket connections to ingest trade data. There is no DON, BFT consensus, node operator network, staking, or slashing. The architecture below describes the **target state** for Phase 2+.
+
+**Target Mechanism**: Chainlink OCR-style consensus
 - Leader election → Distributed observation → Signed reports → Aggregated proof
 - **BFT Tolerance**: n = 3f + 1 (tolerates f Byzantine nodes)
 - **Cryptoeconomic Security**: Node operators stake ZEN tokens
 
-**Slashing Formula**:
+**Slashing Formula** (Target):
 ```
 δi(t) = |vi - V̂| / V̂  (deviation score)
 
@@ -26,21 +32,27 @@ If Σ δi(t) > Θ → Slash node i's stake
 
 ### 2. Citadel (TEE Confidential Compute)
 **Purpose**: Hardware-isolated credential management
+**Status**: ✅ **CURRENT** — Production on Nillion nilCC
 
-**Mechanism**: AWS Nitro Enclaves
-- Hardware-enforced memory encryption
-- Cryptographic attestation (PCR verification)
-- Credentials never leave enclave boundary
+**Current Mechanism**: Nillion nilCC (AMD SEV-SNP)
+- AMD SEV-SNP hardware-enforced memory encryption
+- Cryptographic attestation via `/nilcc/api/v2/report`
+- AES-256-GCM encryption with versioned keys (`nil:v{n}:{payload}`)
+- Credentials never leave TEE boundary in plaintext
+- Decentralized infrastructure — not tied to single cloud provider
 
-**Attestation**: Only code with matching PCR hashes can access KMS encryption keys
+> **Migration History:** v1.0 custom AWS Nitro Enclaves → v2.0 Evervault-managed → v2.1 Nillion nilCC (current). Each migration maintained equivalent security guarantees while improving decentralization.
 
 ### 3. Alchemist (ZK Proof System)
 **Purpose**: Private, verifiable performance proofs
+**Status**: ✅ **CURRENT** (basic) — Recursive aggregation is ⏳ **PLANNED**
 
-**Mechanism**: Noir circuits + Recursive aggregation
-- Individual trade proofs aggregated into single O(1) verification
+**Current Mechanism**: Noir circuits + Batch proofs (up to 10 trades per proof)
+- Individual proof per batch of up to 10 trades
 - BN254 curve (~128-bit security)
-- On-chain verification on Horizen L3
+- On-chain verification on Horizen L3 via UltraHonk
+
+> **Current Limitation:** There is no recursive proof aggregation yet. Each proof covers at most 10 trades. For active traders, this means multiple proofs per day. Recursive aggregation (O(1) verification regardless of trade count) is on the engineering roadmap for 2026.
 
 ---
 
@@ -54,9 +66,9 @@ If Σ δi(t) > Θ → Slash node i's stake
 ```
 Centralized Components:
 ├─ Sentinel: Single instance (Obscura-operated)
-├─ Citadel: Single TEE (AWS Nitro Enclave)
+├─ Citadel: Nillion nilCC TEE (AMD SEV-SNP)
 ├─ Conductor: Single orchestrator
-└─ Alchemist: Single ZK prover
+└─ Alchemist: Single ZK prover (10-trade batches)
 
 Decentralized Components:
 ├─ Smart Contracts: Deployed on Horizen L3

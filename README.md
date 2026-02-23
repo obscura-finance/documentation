@@ -23,13 +23,13 @@ Welcome to Obscura's technical documentation. This documentation explains how we
 ---
 
 ### [02. TEE Implementation](./02_TEE_IMPLEMENTATION.md)
-Deep dive into our **Trusted Execution Environment** implementation using AWS Nitro Enclaves via Evervault.
+Deep dive into our **Trusted Execution Environment** implementation using Nillion nilCC with AMD SEV-SNP hardware attestation.
 
 **Topics Covered**:
 - What is a TEE and why it matters
 - Citadel service architecture
-- AWS Nitro Enclaves internals
-- Encryption scheme (AES-256-GCM)
+- AMD SEV-SNP hardware attestation (via Nillion nilCC)
+- Encryption scheme (AES-256-GCM with versioned keys)
 - Hardware attestation
 - API endpoints and integration
 - Performance metrics
@@ -37,7 +37,7 @@ Deep dive into our **Trusted Execution Environment** implementation using AWS Ni
 
 **Recommended for**: Security engineers, DevOps, Backend developers
 
-**Key Technologies**: AWS Nitro Enclaves, Evervault, AES-256-GCM, VSOCK
+**Key Technologies**: Nillion nilCC, AMD SEV-SNP, AES-256-GCM, Versioned Key Rotation
 
 ---
 

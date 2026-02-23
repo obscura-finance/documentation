@@ -186,44 +186,44 @@ logger.info(f"API key: {api_key[:4]}...{api_key[-4:]}")  # Mask middle
 
 **Mitigations**:
 
-**AWS Nitro Enclaves** (via Evervault):
+**Nillion nilCC (AMD SEV-SNP)**:
 ```
 Hardware Isolation:
-├─ CPU cores allocated exclusively to enclave
-├─ Memory encrypted at hardware level
-├─ No persistent storage (ephemeral only)
-├─ No network access (VSOCK only)
-└─ Cryptographic attestation
+├─ AMD SEV-SNP hardware memory encryption
+├─ Per-VM encryption keys at hardware level
+├─ SNP integrity protection (prevents replay/remapping)
+├─ Decentralized TEE infrastructure (Nillion)
+└─ Cryptographic attestation via /nilcc/api/v2/report
 
 Trust Model:
-├─ Trust AWS Nitro hardware (SGX-like)
-├─ Trust Evervault's enclave code
-├─ Verify via attestation documents
-└─ PCR values match expected hashes
+├─ Trust AMD SEV-SNP hardware
+├─ Trust Nillion nilCC infrastructure
+├─ Verify via attestation reports
+└─ Decentralized — not tied to single cloud vendor
 ```
 
 **Attestation Verification**:
 ```typescript
-async function verifyAttestati on(attestationDoc: Buffer): Promise<boolean> {
-  // 1. Verify signature chain to AWS Root CA
-  const isValidSignature = await verifySignatureChain(attestationDoc);
+async function verifyAttestation(attestationReport: object): Promise<boolean> {
+  // 1. Fetch attestation report from nilCC
+  const report = await fetch('/nilcc/api/v2/report');
   
-  // 2. Extract PCR values
-  const pcrs = extractPCRs(attestationDoc);
+  // 2. Verify AMD SEV-SNP hardware signature
+  const isValidSignature = await verifyAMDSignatureChain(report);
   
-  // 3. Verify PCR0 (enclave image) matches expected
-  const expectedPCR0 = "3a5b9c2d1e...";  // Known good hash
-  if (pcrs.PCR0 !== expectedPCR0) {
-    throw new Error("Enclave image mismatch");
+  // 3. Verify measurement matches expected guest image
+  const measurement = report.measurement;
+  const expectedMeasurement = "3a5b9c2d1e...";  // Known good hash
+  if (measurement !== expectedMeasurement) {
+    throw new Error("Guest image mismatch");
   }
   
-  // 4. Verify timestamp is recent (prevent replay)
-  const timestamp = extractTimestamp(attestationDoc);
-  if (Date.now() - timestamp > 300000) {  // 5 minutes
+  // 4. Verify report is recent (prevent replay)
+  if (Date.now() - report.timestamp > 300000) {  // 5 minutes
     throw new Error("Attestation too old");
   }
   
-  return isValidSignature && pcrs.PCR0 === expectedPCR0;
+  return isValidSignature && measurement === expectedMeasurement;
 }
 ```
 
@@ -290,7 +290,7 @@ async function verifyAttestati on(attestationDoc: Buffer): Promise<boolean> {
 
 **Impact**: **CRITICAL** - Requires immediate user credential rotation
 
-**Likelihood**: **VERY LOW** - Requires breaking AWS Nitro hardware
+**Likelihood**: **VERY LOW** - Requires breaking AMD SEV-SNP hardware
 
 ### Scenario 4: Man-in-the-Middle (API Gateway → Services)
 
@@ -477,15 +477,19 @@ Obscura's security model provides **defense in depth** with multiple layers of p
 - **Network**: TLS 1.3, WAF, DDoS protection
 - **Application**: JWT auth, rate limiting, input validation
 - **Data**: Encryption at rest, audit logging, field-level encryption
-- **Hardware**: TEE (AWS Nitro Enclaves), attestation, memory encryption
+- **Hardware**: TEE (Nillion nilCC / AMD SEV-SNP), attestation, memory encryption
 - **Cryptographic**: ZK proofs, BN254 curve, Poseidon hash
 
-**Key Insight**: Even if multiple layers are breached, credentials remain protected by hardware-enforced TEE isolation.
+**Key Insight**: Even if multiple layers are breached, credentials remain protected by hardware-enforced TEE isolation via AMD SEV-SNP.
 
 ## References
 
-- **AWS Nitro Security**: https://aws.amazon.com/ec2/nitro/
-- **Evervault Security**: https://docs.evervault.com/security
+- **Nillion nilCC**: https://docs.nillion.com/
+- **AMD SEV-SNP**: https://www.amd.com/en/developer/sev.html
 - **ZK Security**: https://eprint.iacr.org/2019/953 (PLONK)
 - **OWASP Top 10**: https://owasp.org/www-project-top-ten/
 - **NIST Cryptography**: https://csrc.nist.gov/
+
+---
+
+*Last Updated: February 2026*

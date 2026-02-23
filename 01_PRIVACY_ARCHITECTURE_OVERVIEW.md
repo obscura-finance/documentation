@@ -19,9 +19,9 @@ Traditional copy trading platforms force users to choose between **privacy** and
 ## Obscura's Solution: Multi-Layered Privacy Architecture
 
 ### Privacy Layer 1: Credential Protection (TEE)
-**Technology**: AWS Nitro Enclaves via Evervault  
+**Technology**: Nillion nilCC (AMD SEV-SNP Hardware Attestation)  
 **Component**: Citadel Service  
-**Protection**: Exchange API keys never exist in plaintext outside hardware enclaves
+**Protection**: Exchange API keys never exist in plaintext outside hardware-encrypted memory
 
 ### Privacy Layer 2: Performance Verification (ZK)
 **Technology**: ZK-SNARKs (Noir framework)  
@@ -57,9 +57,9 @@ Traditional copy trading platforms force users to choose between **privacy** and
 ## Trust Model
 
 ### Current Phase (Centralized Bootstrap)
-- **Trusted Components**: Citadel TEE, Alchemist ZK circuit
-- **Trust Assumptions**: AWS Nitro Enclave hardware attestation, BN254 curve security
-- **Verification**: Hardware attestation documents, on-chain proof verification
+- **Trusted Components**: Citadel TEE (Nillion nilCC), Alchemist ZK circuit
+- **Trust Assumptions**: AMD SEV-SNP hardware attestation, BN254 curve security
+- **Verification**: nilCC attestation reports (via `/nilcc/api/v2/report`), on-chain proof verification
 
 ### Future Phase (Full Decentralization)
 - **Sentinel DON**: Byzantine Fault Tolerant consensus (3f+1 nodes)
@@ -71,7 +71,7 @@ Traditional copy trading platforms force users to choose between **privacy** and
 - **GDPR Ready**: Right to erasure, data portability, minimal data collection
 - **SOC 2 Type II Path**: Audit-ready architecture
 - **Zero-Knowledge Privacy**: Mathematical guarantee of privacy
-- **Hardware-Backed Security**: FIPS 140-2 compliant AWS Nitro
+- **Hardware-Backed Security**: AMD SEV-SNP hardware memory encryption via Nillion nilCC
 
 ## Architecture Diagram
 
@@ -93,7 +93,7 @@ Traditional copy trading platforms force users to choose between **privacy** and
 │  │         Privacy-Preserving Data Layer                │    │
 │  │  • Encrypted at rest (AES-256-GCM)                  │    │
 │  │  • Encrypted in transit (TLS 1.3)                   │    │
-│  │  • Encrypted in use (AWS Nitro Enclaves)            │    │
+│  │  • Encrypted in use (Nillion nilCC / AMD SEV-SNP)       │    │
 │  └──────────────────────────────────────────────────────┘    │
 │         │                                                      │
 │         ▼                                                      │
@@ -124,7 +124,7 @@ Traditional copy trading platforms force users to choose between **privacy** and
 
 | Component | Technology | Purpose | Security Level |
 |-----------|-----------|---------|----------------|
-| **Citadel** | AWS Nitro Enclaves (via Evervault) | Credential encryption/decryption | Hardware-backed |
+| **Citadel** | Nillion nilCC (AMD SEV-SNP) | Credential encryption/decryption | Hardware-backed |
 | **Alchemist** | ZK-SNARKs (Noir/BN254) | Performance verification | Cryptographic |
 | **Sentinel** | Encrypted database + Redis | Trade data ingestion | Application-level |
 | **Conductor** | Secure key delegation to Citadel | Copy trade execution | Service-to-service |
@@ -133,7 +133,7 @@ Traditional copy trading platforms force users to choose between **privacy** and
 ## Next Steps
 
 Explore detailed implementation guides:
-- **[02_TEE_IMPLEMENTATION.md](./02_TEE_IMPLEMENTATION.md)** - Citadel & AWS Nitro Enclaves
+- **[02_TEE_IMPLEMENTATION.md](./02_TEE_IMPLEMENTATION.md)** - Citadel & Nillion nilCC / AMD SEV-SNP
 - **[03_ZK_IMPLEMENTATION.md](./03_ZK_IMPLEMENTATION.md)** - Alchemist & ZK-SNARKs
 - **[04_SYSTEM_ARCHITECTURE.md](./04_SYSTEM_ARCHITECTURE.md)** - Complete system design
 - **[05_SECURITY_MODEL.md](./05_SECURITY_MODEL.md)** - Threat model & mitigations

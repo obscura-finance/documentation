@@ -2,16 +2,16 @@
 
 ## Overview
 
-Obscura integrates Nillion's privacy-preserving infrastructure (nilCC + nilDB) to strengthen its confidential compute and data custody model. This replaces Evervault/AWS Nitro with bare-metal TEE and adds distributed secret-sharing for sensitive data.
+Obscura integrates Nillion's privacy-preserving infrastructure (nilCC + nilDB) to strengthen its confidential compute and data custody model. **Phase 1 (nilCC) is complete** — Citadel now runs on Nillion nilCC with AMD SEV-SNP hardware attestation. Phases 2-3 (nilDB + NUC access control) are in planning.
 
 ## Component Mapping
 
-| Current                          | Target               | Function                                      |
-|----------------------------------|----------------------|-----------------------------------------------|
-| Citadel (Evervault/Nitro)        | **nilCC**            | Decrypt credentials, sign orders, compute     |
-| Encrypted fields in Postgres     | **nilDB**            | Secret-share API keys, PII, alpha content     |
-| Custom access control            | **NUCs**             | Programmatic grant/revoke per subscriber      |
-| (Optional) CEX verification      | **Primus zkTLS**     | Binance PnL attestation                       |
+| Current                          | Target               | Function                                      | Status          |
+|----------------------------------|----------------------|-----------------------------------------------|-----------------|
+| Citadel (Nillion nilCC)          | *(Complete)*         | Decrypt credentials, sign orders, compute     | ✅ Live          |
+| Encrypted fields in Postgres     | **nilDB**            | Secret-share API keys, PII, alpha content     | ⏳ Planned       |
+| Custom access control            | **NUCs**             | Programmatic grant/revoke per subscriber      | ⏳ Planned       |
+| (Optional) CEX verification      | **Primus zkTLS**     | Binance PnL attestation                       | ⏳ Planned       |
 
 ## Architecture
 
@@ -92,17 +92,17 @@ Obscura integrates Nillion's privacy-preserving infrastructure (nilCC + nilDB) t
 
 | Phase | Scope                                    | Timeline   |
 |-------|------------------------------------------|------------|
-| **1** | Citadel → nilCC (decrypt + sign)         | Weeks 1–4  |
+| **1** | Citadel → nilCC (decrypt + sign)         | ✅ **Complete** |
 | **2** | Postgres secrets → nilDB                 | Weeks 5–8  |
 | **3** | Alpha content + leaderboard metrics      | Weeks 9–12 |
 
 ## Security Model Changes
 
-| Threat Scenario       | Current (Evervault)              | Target (Nillion)                         |
+| Threat Scenario       | Previous (Evervault)             | Current (Nillion nilCC)                  |
 |-----------------------|----------------------------------|------------------------------------------|
-| **DB breach**         | Encrypted blobs exposed          | Opaque refs; secrets in nilDB            |
-| **Infra compromise**  | Trust AWS + Evervault            | Bare-metal TEE; no cloud dependency      |
-| **Insider access**    | Single encrypted store           | 3-node quorum required                   |
+| **DB breach**         | Encrypted blobs exposed          | Versioned nil: encrypted; master key in TEE |
+| **Infra compromise**  | Trust AWS + Evervault            | Bare-metal TEE; decentralized infra      |
+| **Insider access**    | Single encrypted store           | Master key isolated in AMD SEV-SNP       |
 | **Service compromise**| Temp plaintext in memory         | Same (TEE isolation)                     |
 
 ## Performance Considerations
@@ -146,7 +146,7 @@ With Tickr sunsetted, Obscura is positioned to continue that vision. This sectio
 | CEX verification | zkTLS (Primus) | API key trust | No cryptographic proof |
 | Credential flow | Browser extension | API key submission | Higher friction + trust burden |
 | Access control | NUCs (on-chain) | Application-level | No trustless pipeline |
-| Operator blindness | Full (nilCC) | Partial (Evervault) | Narrative gap |
+| Operator blindness | Full (nilCC) | **nilCC (AMD SEV-SNP)** | ✅ Achieved with migration |
 | DEX integration | Hyperliquid native | CCXT adapters | No privacy-first DEX flow |
 
 ---
@@ -472,4 +472,4 @@ async def verify_subscription(txn_hash: str, follower: str, trader: str) -> bool
 
 ---
 
-*Last Updated: January 2026*
+*Last Updated: February 2026*
